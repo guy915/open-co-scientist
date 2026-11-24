@@ -144,10 +144,13 @@ frontend host; everything there is compiled into public assets.
 - Headers: `/assets/*` is cached for a year and immutable; every path sends
   `X-Content-Type-Options: nosniff`,
   `Referrer-Policy: strict-origin-when-cross-origin`,
-  `X-Frame-Options: DENY`, a `Permissions-Policy` that denies camera,
-  microphone, geolocation and payment, and a Content-Security-Policy. `/` and
-  `*.html` are `no-cache`. The policy's `connect-src` names the API origin:
-  a new API domain needs a `_headers` change as well as `VITE_API_BASE_URL`.
+  a `Permissions-Policy` that denies camera, microphone, geolocation and
+  payment, and a Content-Security-Policy. `/` and `*.html` are `no-cache`.
+  The policy's `connect-src` names the API origin: a new API domain needs a
+  `_headers` change as well as `VITE_API_BASE_URL`. Its `frame-ancestors`
+  allows frames only on the site itself and on `https://guy915.github.io`
+  (the Steel talk's live demo), so there is no `X-Frame-Options` header. An
+  embedding page can add `?theme=light` or `?theme=dark` to pick the theme.
 
 ## Database replication (optional)
 

@@ -30,6 +30,10 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function readStoredMode(): Mode {
   if (typeof window === 'undefined') return 'system';
+  // ?theme=light|dark picks the theme and is kept, so a page embedded in a
+  // light slide stays light as its visitor clicks through.
+  const asked = new URLSearchParams(window.location.search).get('theme');
+  if (asked === 'light' || asked === 'dark') return asked;
   const stored = readStorage('local', STORAGE_KEYS.theme);
   return stored === 'light' || stored === 'dark' || stored === 'system'
     ? stored
