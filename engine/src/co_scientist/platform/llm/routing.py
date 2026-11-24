@@ -349,7 +349,10 @@ class _InterviewRoutedStream:
             _note_failure(self._path, slot, model, error, "free_route_unavailable")
             return "free_route_unavailable", self._sticky
         if not _provider_quota(error):
-            return None
+            if not _free_route_error(slot, error):
+                return None
+            _note_failure(self._path, slot, model, error, "free_route_error")
+            return "free_route_error", self._sticky
         _note_failure(self._path, slot, model, error, "provider_quota")
         return "provider_quota", self._sticky
 
@@ -591,6 +594,13 @@ def _note_failure(path: str, slot: Slot, model: str, error: Exception, reason: s
     log_provider_failure(slot=slot, model=model, error=error, reason=reason, blocked_until=blocked)
 
 
+def _free_route_error(slot: Slot, error: Exception) -> bool:
+    """A free route that errors (an upstream 5xx, a dropped connection) moves
+    the call to the next provider instead of failing it; refusals do not.
+    """
+    return slot == "openrouter" and not isinstance(error, (LLMContentFilteredError, ValueError))
+
+
 def _provider_quota(error: Exception) -> bool:
     named = type(error).__name__ in {
         "RateLimitError",
@@ -783,8 +793,12 @@ async def routed_completion(
                 if isinstance(error, (ProviderAdmissionError, LLMTimeoutError)):
                     raise
                 raise ProviderAdmissionError(UNAVAILABLE) from error
-            if not _provider_quota(error):
+            if _provider_quota(error):
+                reason = "provider_quota"
+            elif _free_route_error(slot, error):
+                reason = "free_route_error"
+            else:
                 raise
-            previous, reason = slot, "provider_quota"
+            previous = slot
             _note_failure(path, slot, str(args["model"]), error, reason)
     raise ProviderAdmissionError(UNAVAILABLE)
