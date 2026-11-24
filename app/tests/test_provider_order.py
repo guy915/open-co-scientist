@@ -1185,6 +1185,49 @@ async def test_interview_free_route_keeps_answer_once_text_is_shown(
     assert calls == ["openrouter/inclusionai/ling-3.1-flash"]
 
 
+async def test_interview_free_route_server_error_falls_back_before_output(
+    path: str, providers: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[str] = []
+
+    async def failing_free() -> Any:
+        raise _ProviderError("upstream error", 502)
+        yield  # pragma: no cover
+
+    async def dispatch(args: dict[str, Any], model: str) -> Any:
+        calls.append(model)
+        if model.startswith("openrouter/"):
+            return failing_free()
+        return _stream(_stream_chunk(content="answer", finish_reason="stop"))
+
+    response = await _route_interview_stream(
+        path, providers, monkeypatch, dispatch, keep_free_route=True
+    )
+    text = [chunk.choices[0].delta.content async for chunk in response]
+    assert "".join(text) == "answer"
+    assert calls == ["openrouter/inclusionai/ling-3.1-flash", "anthropic/claude-haiku-5-5"]
+    assert free_available(path, 10)
+
+
+async def test_interview_free_route_dispatch_error_falls_back(
+    path: str, providers: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[str] = []
+
+    async def dispatch(args: dict[str, Any], model: str) -> Any:
+        calls.append(model)
+        if model.startswith("openrouter/"):
+            raise _ProviderError("upstream error", 500)
+        return _stream(_stream_chunk(content="answer", finish_reason="stop"))
+
+    response = await _route_interview_stream(
+        path, providers, monkeypatch, dispatch, keep_free_route=True
+    )
+    text = [chunk.choices[0].delta.content async for chunk in response]
+    assert "".join(text) == "answer"
+    assert calls == ["openrouter/inclusionai/ling-3.1-flash", "anthropic/claude-haiku-5-5"]
+
+
 class _ProviderError(Exception):
     def __init__(self, message: str, status_code: int, headers: dict[str, str] | None = None):
         super().__init__(message)
