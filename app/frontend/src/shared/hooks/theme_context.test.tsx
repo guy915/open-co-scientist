@@ -125,3 +125,16 @@ it('renders with the system theme when storage is blocked', () => {
     blocked.mockRestore();
   }
 });
+
+it('a ?theme= query picks the theme over the OS scheme and keeps it', async () => {
+  installFakeMatchMedia(true);
+  window.history.replaceState(null, '', '/?theme=light');
+  try {
+    const {result} = renderHook(() => useTheme(), {wrapper});
+    await flushThemeTransition();
+    expect(result.current.resolvedMode).toBe('light');
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('light');
+  } finally {
+    window.history.replaceState(null, '', '/');
+  }
+});
