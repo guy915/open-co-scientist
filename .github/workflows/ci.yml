@@ -448,6 +448,13 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: python scripts/ci/git_hygiene.py
+      - name: Check pushed main commit messages and identities
+        # Squash merges add co-author trailers that no PR run sees.
+        if: github.event_name == 'push'
+        env:
+          BASE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.event.after }}
+        run: python scripts/ci/git_hygiene.py --pushed
       - name: Install checksum-verified secret detector
         if: github.event_name == 'pull_request'
         run: python scripts/ci/install_tools.py gitleaks "$RUNNER_TEMP/ci-tools"
