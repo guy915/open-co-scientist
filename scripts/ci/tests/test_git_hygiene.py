@@ -165,6 +165,17 @@ class GitHygieneTests(unittest.TestCase):
                 {"BASE_SHA": head, "HEAD_SHA": git("rev-parse", "HEAD")},
             ):
                 self.assertEqual(main(root, pushed=True), 1)
+            with patch.dict(
+                os.environ,
+                {"BASE_SHA": "0" * 40, "HEAD_SHA": git("rev-parse", "HEAD")},
+            ):
+                self.assertEqual(main(root, pushed=True), 1)
+            git("reset", "-q", "--hard", "HEAD~1")
+            with patch.dict(
+                os.environ,
+                {"BASE_SHA": "f" * 40, "HEAD_SHA": git("rev-parse", "HEAD")},
+            ):
+                self.assertEqual(main(root, pushed=True), 0)
             git(
                 "commit",
                 "--allow-empty",
