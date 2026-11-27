@@ -195,8 +195,12 @@ Three facts are load-bearing:
 
 Never mention yourself or any other AI tool in commits, pull requests, pushes
 or merge messages: no AI co-author trailers or "Generated with" lines, even
-when a tool adds them by default. `scripts/ci/git_hygiene.py` checks branch
-commit messages and the PR title and body. It rejects tool names as whole words
+when a tool adds them by default. Commit as a person, never as a tool identity
+such as `Claude <noreply@anthropic.com>`: GitHub adds a `Co-authored-by`
+trailer for every other commit author when it squash-merges, and that lists
+the tool as a repository contributor. `scripts/ci/git_hygiene.py` checks branch
+commit messages, commit author and committer identities, and the PR title and
+body, and checks each push to `main` again for the same attribution. It rejects tool names as whole words
 in any case (so model names such as Claude and words such as "cursor" fail),
 attribution trailers, non-merge commit subjects without `<type>(<scope>): `,
 and PR titles with any `type:` or `type(scope):` prefix.

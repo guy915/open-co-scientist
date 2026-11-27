@@ -48,6 +48,29 @@ class GitHygieneTests(unittest.TestCase):
                 )
                 self.assertTrue(check_commit("Merge branch 'main'\n\n" + value, True))
 
+    def test_ai_author_or_committer_identity_fails(self):
+        for identity in (
+            "Claude <noreply@anthropic.com>",
+            "Bot <noreply@anthropic.com>",
+            "Codex <codex@openai.com>",
+            "Jane <jane@example.com>\nClaude <claude@example.com>",
+        ):
+            with self.subTest(identity=identity):
+                self.assertTrue(check_commit("fix(ci): guard checks", False, identity))
+                self.assertTrue(
+                    check_commit(
+                        "Guard checks (#1)", False, identity, subject_rule=False
+                    )
+                )
+        self.assertEqual(
+            check_commit(
+                "fix(ci): guard checks",
+                False,
+                "Jane <jane@example.com>\nGitHub <noreply@github.com>",
+            ),
+            [],
+        )
+
     def test_conventional_prefix_is_rejected_only_in_pr_title(self):
         for title in (
             "fix: guard checks",
@@ -109,6 +132,39 @@ class GitHygieneTests(unittest.TestCase):
                 os.environ, {"PR_TITLE": "", "BASE_SHA": base, "HEAD_SHA": head}
             ):
                 self.assertEqual(main(root, commits_only=True), 0)
+            git(
+                "-c",
+                "user.name=Claude",
+                "-c",
+                "user.email=noreply@anthropic.com",
+                "commit",
+                "--allow-empty",
+                "-qm",
+                "fix(ci): clean message from a tool identity",
+            )
+            with patch.dict(
+                os.environ,
+                {"BASE_SHA": base, "HEAD_SHA": git("rev-parse", "HEAD")},
+            ):
+                self.assertEqual(main(root, commits_only=True), 1)
+            git("reset", "-q", "--hard", head)
+            git("commit", "--allow-empty", "-qm", "Squash title (#1)")
+            with patch.dict(
+                os.environ,
+                {"BASE_SHA": head, "HEAD_SHA": git("rev-parse", "HEAD")},
+            ):
+                self.assertEqual(main(root, pushed=True), 0)
+            git(
+                "commit",
+                "--allow-empty",
+                "-qm",
+                "Squash title (#2)\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+            )
+            with patch.dict(
+                os.environ,
+                {"BASE_SHA": head, "HEAD_SHA": git("rev-parse", "HEAD")},
+            ):
+                self.assertEqual(main(root, pushed=True), 1)
             git(
                 "commit",
                 "--allow-empty",
