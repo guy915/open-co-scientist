@@ -79,7 +79,14 @@ def main(
     )
     base = revision(os.environ.get("BASE_SHA", ""))
     head = revision(os.environ.get("HEAD_SHA", ""))
-    commits = git(root, "rev-list", "--reverse", f"{base}..{head}").splitlines()
+    # A force-push leaves the old head unreachable, so check the whole new history.
+    known = subprocess.run(
+        ["git", "-C", str(root), "cat-file", "-e", f"{base}^{{commit}}"],
+        capture_output=True,
+        check=False,
+    )
+    span = f"{base}..{head}" if not pushed or known.returncode == 0 else head
+    commits = git(root, "rev-list", "--reverse", span).splitlines()
     for commit in commits:
         message = git(root, "show", "-s", "--format=%B", commit)
         parents = git(root, "show", "-s", "--format=%P", commit).split()
